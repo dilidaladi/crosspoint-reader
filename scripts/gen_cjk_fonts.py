@@ -127,8 +127,13 @@ def main() -> int:
     # Check source files exist
     ubuntu_regular = os.path.join(UBUNTU_DIR, "Ubuntu-Regular.ttf")
     ubuntu_bold = os.path.join(UBUNTU_DIR, "Ubuntu-Bold.ttf")
+    # Accept both .ttf and .otf (release zip ships .otf)
     noto_sc_regular = os.path.join(noto_sc_dir, "NotoSansSC-Regular.ttf")
+    if not os.path.exists(noto_sc_regular):
+        noto_sc_regular = os.path.join(noto_sc_dir, "NotoSansSC-Regular.otf")
     noto_sc_bold = os.path.join(noto_sc_dir, "NotoSansSC-Bold.ttf")
+    if not os.path.exists(noto_sc_bold):
+        noto_sc_bold = os.path.join(noto_sc_dir, "NotoSansSC-Bold.otf")
 
     missing = []
     for path in [ubuntu_regular, ubuntu_bold]:
