@@ -37,6 +37,8 @@ TRANSLATIONS_FILE = "lib/I18n/translations/chinese.yaml"
 FONT_SCRIPTS_DIR = "lib/EpdFont/scripts"
 UBUNTU_DIR = "lib/EpdFont/builtinFonts/source/Ubuntu"
 NOTO_SC_DIR = "lib/EpdFont/builtinFonts/source/NotoSansSC"
+NOTO_SANS_DIR = "lib/EpdFont/builtinFonts/source/NotoSans"
+NOTO_SERIF_DIR = "lib/EpdFont/builtinFonts/source/NotoSerif"
 OUTPUT_DIR = "lib/EpdFont/builtinFonts"
 
 
@@ -127,6 +129,10 @@ def main() -> int:
     # Check source files exist
     ubuntu_regular = os.path.join(UBUNTU_DIR, "Ubuntu-Regular.ttf")
     ubuntu_bold = os.path.join(UBUNTU_DIR, "Ubuntu-Bold.ttf")
+    notosans_regular = os.path.join(NOTO_SANS_DIR, "NotoSans-Regular.ttf")
+    notosans_bold = os.path.join(NOTO_SANS_DIR, "NotoSans-Bold.ttf")
+    notoserif_regular = os.path.join(NOTO_SERIF_DIR, "NotoSerif-Regular.ttf")
+    notoserif_bold = os.path.join(NOTO_SERIF_DIR, "NotoSerif-Bold.ttf")
     # Accept both .ttf and .otf (release zip ships .otf)
     noto_sc_regular = os.path.join(noto_sc_dir, "NotoSansSC-Regular.ttf")
     if not os.path.exists(noto_sc_regular):
@@ -136,7 +142,8 @@ def main() -> int:
         noto_sc_bold = os.path.join(noto_sc_dir, "NotoSansSC-Bold.otf")
 
     missing = []
-    for path in [ubuntu_regular, ubuntu_bold]:
+    for path in [ubuntu_regular, ubuntu_bold, notosans_regular, notosans_bold,
+                 notoserif_regular, notoserif_bold]:
         if not os.path.exists(path):
             missing.append(path)
     for path in [noto_sc_regular, noto_sc_bold]:
@@ -163,34 +170,64 @@ def main() -> int:
     print(f"Merged into {len(extra_intervals)} Unicode intervals")
     print()
 
-    # Generate UI fonts (Ubuntu + NotoSansSC fallback)
-    fonts = [
-        ("ubuntu_10_regular", 10, ubuntu_regular, noto_sc_regular, False, False),
-        ("ubuntu_10_bold",    10, ubuntu_bold,    noto_sc_bold,    False, False),
-        ("ubuntu_12_regular", 12, ubuntu_regular, noto_sc_regular, False, False),
-        ("ubuntu_12_bold",    12, ubuntu_bold,    noto_sc_bold,    False, False),
-        # SMALL_FONT (notosans_8_regular) for status bar — use NotoSansSC as fallback
-        ("notosans_8_regular", 8, os.path.join("lib/EpdFont/builtinFonts/source/NotoSans", "NotoSans-Regular.ttf"),
-         noto_sc_regular, False, False),
+    # UI fonts (Ubuntu + NotoSansSC fallback) — file browser and menus
+    ui_fonts = [
+        ("ubuntu_10_regular", 10, ubuntu_regular, noto_sc_regular),
+        ("ubuntu_10_bold",    10, ubuntu_bold,    noto_sc_bold),
+        ("ubuntu_12_regular", 12, ubuntu_regular, noto_sc_regular),
+        ("ubuntu_12_bold",    12, ubuntu_bold,    noto_sc_bold),
+        # SMALL_FONT for status bar / path display
+        ("notosans_8_regular", 8, notosans_regular, noto_sc_regular),
     ]
 
+    # Reader body fonts (NotoSerif and NotoSans, regular + bold only, all sizes)
+    # Italic/bolditalic variants are omitted; EpdFontFamily falls back to regular/bold.
+    body_fonts = [
+        ("notoserif_12_regular", 12, notoserif_regular, noto_sc_regular),
+        ("notoserif_12_bold",    12, notoserif_bold,    noto_sc_bold),
+        ("notoserif_14_regular", 14, notoserif_regular, noto_sc_regular),
+        ("notoserif_14_bold",    14, notoserif_bold,    noto_sc_bold),
+        ("notoserif_16_regular", 16, notoserif_regular, noto_sc_regular),
+        ("notoserif_16_bold",    16, notoserif_bold,    noto_sc_bold),
+        ("notoserif_18_regular", 18, notoserif_regular, noto_sc_regular),
+        ("notoserif_18_bold",    18, notoserif_bold,    noto_sc_bold),
+        ("notosans_12_regular",  12, notosans_regular,  noto_sc_regular),
+        ("notosans_12_bold",     12, notosans_bold,     noto_sc_bold),
+        ("notosans_14_regular",  14, notosans_regular,  noto_sc_regular),
+        ("notosans_14_bold",     14, notosans_bold,     noto_sc_bold),
+        ("notosans_16_regular",  16, notosans_regular,  noto_sc_regular),
+        ("notosans_16_bold",     16, notosans_bold,     noto_sc_bold),
+        ("notosans_18_regular",  18, notosans_regular,  noto_sc_regular),
+        ("notosans_18_bold",     18, notosans_bold,     noto_sc_bold),
+    ]
+
+    all_fonts = ui_fonts + body_fonts
     success = 0
-    for font_name, size, primary, fallback, compress, two_bit in fonts:
+
+    print("--- UI fonts ---")
+    for font_name, size, primary, fallback in ui_fonts:
         out = os.path.join(OUTPUT_DIR, f"{font_name}.h")
-        ok = run_fontconvert(font_name, size, primary, fallback, out,
-                             extra_intervals, compress=compress, two_bit=two_bit)
+        ok = run_fontconvert(font_name, size, primary, fallback, out, extra_intervals)
         if ok:
             success += 1
 
     print()
-    if success == len(fonts):
-        print(f"Done! {success}/{len(fonts)} font files regenerated with CJK support.")
+    print("--- Reader body fonts (NotoSerif + NotoSans regular/bold with CJK) ---")
+    for font_name, size, primary, fallback in body_fonts:
+        out = os.path.join(OUTPUT_DIR, f"{font_name}.h")
+        ok = run_fontconvert(font_name, size, primary, fallback, out, extra_intervals)
+        if ok:
+            success += 1
+
+    print()
+    if success == len(all_fonts):
+        print(f"Done! {success}/{len(all_fonts)} font files regenerated with CJK support.")
         print()
         print("Next steps:")
-        print("  1. Run: pio run   (to rebuild firmware)")
+        print("  1. Run: pio run -e gh_release   (to rebuild firmware)")
         print("  2. Flash to device, set language to 中文 in Settings > Language")
     else:
-        print(f"WARNING: only {success}/{len(fonts)} fonts generated successfully.")
+        print(f"WARNING: only {success}/{len(all_fonts)} fonts generated successfully.")
         return 1
 
     return 0
