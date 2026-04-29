@@ -11,6 +11,7 @@
 #include <I18n.h>
 #include <Logging.h>
 #include <SPI.h>
+#include <SdFont.h>
 #include <builtinFonts/all.h>
 
 #include <cstring>
@@ -33,6 +34,16 @@ GfxRenderer renderer(display);
 ActivityManager activityManager(renderer, mappedInputManager);
 FontDecompressor fontDecompressor;
 FontCacheManager fontCacheManager(renderer.getFontMap());
+
+// CJK glyph streaming — loaded from flash-embedded EPDF data, with optional SD card override
+// reader_cjk.epdf: body font size (14 pt NotoSansSC) used for EPUB reader
+// ui_cjk.epdf:     UI font size (12 pt NotoSansSC) used for file browser
+SdFont readerSdFont;
+SdFont uiSdFont;
+
+// Flash-embedded CJK font data (C arrays generated from NotoSansSC EPDF files)
+#include <builtinFonts/cjk_data/reader_cjk_flash.h>
+#include <builtinFonts/cjk_data/ui_cjk_flash.h>
 
 // Fonts — italic/bolditalic variants omitted; EpdFontFamily falls back to regular/bold for italic requests
 EpdFont notoserif14RegularFont(&notoserif_14_regular);
@@ -143,6 +154,43 @@ void enterDeepSleep() {
   powerManager.startDeepSleep(gpio);
 }
 
+static void loadCjkSdFonts() {
+  // Load reader CJK font: prefer SD card override, fall back to flash-embedded data
+  bool readerLoaded = readerSdFont.load("/.crosspoint/reader_cjk.epdf");
+  if (readerLoaded) {
+    LOG_INF("MAIN", "CJK reader font loaded from SD card (user override)");
+  } else {
+    readerLoaded = readerSdFont.loadFromMemory(READER_CJK_FLASH, READER_CJK_FLASH_size);
+    if (readerLoaded) LOG_INF("MAIN", "CJK reader font loaded from firmware");
+  }
+  if (readerLoaded) {
+    notoserif14FontFamily.setCjkFallback(&readerSdFont);
+#ifndef OMIT_FONTS
+    notoserif12FontFamily.setCjkFallback(&readerSdFont);
+    notoserif16FontFamily.setCjkFallback(&readerSdFont);
+    notoserif18FontFamily.setCjkFallback(&readerSdFont);
+    notosans12FontFamily.setCjkFallback(&readerSdFont);
+    notosans14FontFamily.setCjkFallback(&readerSdFont);
+    notosans16FontFamily.setCjkFallback(&readerSdFont);
+    notosans18FontFamily.setCjkFallback(&readerSdFont);
+#endif
+  }
+
+  // Load UI CJK font: prefer SD card override, fall back to flash-embedded data
+  bool uiLoaded = uiSdFont.load("/.crosspoint/ui_cjk.epdf");
+  if (uiLoaded) {
+    LOG_INF("MAIN", "CJK UI font loaded from SD card (user override)");
+  } else {
+    uiLoaded = uiSdFont.loadFromMemory(UI_CJK_FLASH, UI_CJK_FLASH_size);
+    if (uiLoaded) LOG_INF("MAIN", "CJK UI font loaded from firmware");
+  }
+  if (uiLoaded) {
+    ui10FontFamily.setCjkFallback(&uiSdFont);
+    ui12FontFamily.setCjkFallback(&uiSdFont);
+    smallFontFamily.setCjkFallback(&uiSdFont);
+  }
+}
+
 void setupDisplayAndFonts() {
   display.begin();
   renderer.begin();
@@ -155,6 +203,11 @@ void setupDisplayAndFonts() {
   }
   fontCacheManager.setFontDecompressor(&fontDecompressor);
   renderer.setFontCacheManager(&fontCacheManager);
+
+  // Attach CJK SD-card fallback fonts before inserting into the map
+  // so every copied EpdFontFamily carries the fallback pointer.
+  loadCjkSdFonts();
+
   renderer.insertFont(NOTOSERIF_14_FONT_ID, notoserif14FontFamily);
 #ifndef OMIT_FONTS
   renderer.insertFont(NOTOSERIF_12_FONT_ID, notoserif12FontFamily);

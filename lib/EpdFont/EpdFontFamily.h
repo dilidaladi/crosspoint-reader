@@ -1,6 +1,8 @@
 #pragma once
 #include "EpdFont.h"
 
+class SdFont;
+
 class EpdFontFamily {
  public:
   enum Style : uint8_t { REGULAR = 0, BOLD = 1, ITALIC = 2, BOLD_ITALIC = 3, UNDERLINE = 4 };
@@ -15,11 +17,17 @@ class EpdFontFamily {
   int8_t getKerning(uint32_t leftCp, uint32_t rightCp, Style style = REGULAR) const;
   uint32_t applyLigatures(uint32_t cp, const char*& text, Style style = REGULAR) const;
 
+  void setCjkFallback(SdFont* font) { cjkFallback_ = font; }
+
  private:
   const EpdFont* regular;
   const EpdFont* bold;
   const EpdFont* italic;
   const EpdFont* boldItalic;
 
+  SdFont*          cjkFallback_     = nullptr;
+  mutable bool     lastWasFallback_ = false;
+
   const EpdFont* getFont(Style style) const;
+  static bool    isCjkCodepoint(uint32_t cp);
 };
